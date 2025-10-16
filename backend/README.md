@@ -86,3 +86,72 @@ Then visit `http://localhost:3000/health`.
 
 Contact
 - If an error persists, paste the server console output and the exact Postman request (URL, headers, body) and I'll help debug further.
+
+## POST /users/login
+
+Authenticates a user using email and password. On success returns a JWT token and the user object. The controller also sets a cookie named `token` with the JWT.
+
+URL
+- POST /users/login
+- Full path (when mounted): `POST /users/login`
+
+Description
+- Validates email and password in the request body.
+- Looks up the user by email and compares the provided password with the stored hash.
+- On success, creates a JWT using `user.generateAuthToken()` and returns `{ token, user }` and sets a cookie `token`.
+
+Request
+- Content-Type: application/json
+- Body (example):
+
+```json
+{
+  "email": "john@example.com",
+  "password": "secret123"
+}
+```
+
+Required fields and validation rules
+- `email` — required, must be a valid email (controller expects it and the route should validate it).
+- `password` — required, minimum length 6 (route-level validation should enforce this).
+
+Status codes
+- 200 OK
+  - Returned when authentication succeeds. Response body: `{ token, user }` and cookie `token` is set.
+- 400 Bad Request
+  - Validation failed. Response includes `{ errors: [...] }` from express-validator.
+- 401 Unauthorized
+  - Invalid email or password. Response: `{ message: 'Invalid email or password' }`.
+- 404 Not Found
+  - Router not mounted or wrong URL/port (same notes as register endpoint).
+- 500 Internal Server Error
+  - DB or runtime errors.
+
+Response examples
+- Success (200):
+
+```json
+{
+  "token": "<jwt token>",
+  "user": {
+    "_id": "64...",
+    "fullname": { "firstname": "John", "lastname": "Doe" },
+    "email": "john@example.com",
+    "socketId": null,
+    "__v": 0
+  }
+}
+```
+
+- Authentication error (401):
+
+```json
+{
+  "message": "Invalid email or password"
+}
+```
+
+Notes
+- The controller calls `res.cookie('token', token)` to set a cookie. If you're calling from Postman, enable cookie persistence or read the `token` field from the JSON response.
+- The controller uses `userModel.findOne({ email }).select('+password')` to fetch the password hash; ensure your model stores the password and that the DB is accessible.
+
