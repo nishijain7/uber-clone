@@ -155,3 +155,94 @@ Notes
 - The controller calls `res.cookie('token', token)` to set a cookie. If you're calling from Postman, enable cookie persistence or read the `token` field from the JSON response.
 - The controller uses `userModel.findOne({ email }).select('+password')` to fetch the password hash; ensure your model stores the password and that the DB is accessible.
 
+## GET /users/profile
+
+Returns the authenticated user's profile information. Requires authentication via token cookie or Authorization header.
+
+URL
+- GET /users/profile
+- Full path (when mounted): `GET /users/profile`
+
+Description
+- Uses `authMiddleware.authUser` to verify the JWT token.
+- Returns the authenticated user's profile information (user object attached by auth middleware).
+- No request body needed, authentication is via token only.
+
+Authentication
+- Required: Yes
+- Method: JWT token in either:
+  - Cookie named 'token'
+  - Authorization header: `Bearer <token>`
+
+Status codes
+- 200 OK
+  - Profile retrieved successfully. Response contains the user document.
+- 401 Unauthorized
+  - No token provided or invalid/expired token.
+- 404 Not Found
+  - Router not mounted or wrong URL/port.
+
+Response example
+- Success (200):
+
+```json
+{
+  "_id": "64...",
+  "fullname": {
+    "firstname": "John",
+    "lastname": "Doe"
+  },
+  "email": "john@example.com",
+  "socketId": null,
+  "__v": 0
+}
+```
+
+Notes
+- The user object comes from `req.user` set by the auth middleware.
+- Password field is excluded by default due to `select: false` in the model.
+
+## GET /users/logout
+
+Logs out the current user by clearing the token cookie and blacklisting the current token.
+
+URL
+- GET /users/logout
+- Full path (when mounted): `GET /users/logout`
+
+Description
+- Uses `authMiddleware.authUser` to verify the JWT token.
+- Clears the `token` cookie from the client.
+- Adds the token to a blacklist in the database to prevent reuse.
+- No request body needed, authentication is via token only.
+
+Authentication
+- Required: Yes
+- Method: JWT token in either:
+  - Cookie named 'token'
+  - Authorization header: `Bearer <token>`
+
+Status codes
+- 200 OK
+  - Logout successful. Cookie cleared and token blacklisted.
+- 401 Unauthorized
+  - No token provided or invalid/expired token.
+- 404 Not Found
+  - Router not mounted or wrong URL/port.
+- 500 Internal Server Error
+  - Error adding token to blacklist.
+
+Response example
+- Success (200):
+
+```json
+{
+  "message": "Logged out"
+}
+```
+
+Notes
+- The endpoint attempts to get the token from either cookies or Authorization header.
+- Tokens are stored in `blackListTokenModel` to prevent reuse after logout.
+- Make sure your auth middleware checks the blacklist before accepting tokens.
+
