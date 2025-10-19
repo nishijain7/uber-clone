@@ -246,3 +246,96 @@ Notes
 - Tokens are stored in `blackListTokenModel` to prevent reuse after logout.
 - Make sure your auth middleware checks the blacklist before accepting tokens.
 
+# Captain API
+
+## POST /captains/login
+
+Quick login for captains. Returns token and captain data.
+
+Key Points:
+- URL: `POST /captains/login`
+- Purpose: Authenticate captain and get access token
+- Auth Required: No
+
+Request Body:
+```json
+{
+  "email": "captain@example.com",
+  "password": "secret123"
+}
+```
+
+Validation:
+- email: must be valid email format
+- password: minimum 6 characters
+
+Responses:
+- 200: Login successful
+  ```json
+  {
+    "token": "<jwt_token>",
+    "captain": {
+      "fullname": { "firstname": "John", "lastname": "Doe" },
+      "email": "captain@example.com",
+      "vehicle": {
+        "color": "black",
+        "plate": "ABC123",
+        "capacity": 4,
+        "vehicleType": "car"
+      },
+      "status": "inactive"
+    }
+  }
+  ```
+- 401: Invalid credentials
+  ```json
+  { "message": "Invalid email or password" }
+  ```
+
+## GET /captains/profile
+
+Get logged-in captain's profile data.
+
+Key Points:
+- URL: `GET /captains/profile`
+- Purpose: Fetch current captain's details
+- Auth Required: Yes (token in cookie or Authorization header)
+
+Response:
+- 200: Profile retrieved
+  ```json
+  {
+    "captain": {
+      "fullname": { "firstname": "John", "lastname": "Doe" },
+      "email": "captain@example.com",
+      "vehicle": {
+        "color": "black",
+        "plate": "ABC123",
+        "capacity": 4,
+        "vehicleType": "car"
+      },
+      "status": "inactive"
+    }
+  }
+  ```
+- 401: Not authenticated
+
+## GET /captains/logout
+
+End captain's session.
+
+Key Points:
+- URL: `GET /captains/logout`
+- Purpose: Invalidate token and clear cookie
+- Auth Required: Yes (token in cookie or Authorization header)
+- Actions:
+  1. Clears token cookie
+  2. Adds token to blacklist
+  3. Prevents token reuse
+
+Response:
+- 200: Successfully logged out
+  ```json
+  { "message": "Logout successfully" }
+  ```
+- 401: Not authenticated
