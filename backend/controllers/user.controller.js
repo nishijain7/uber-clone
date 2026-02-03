@@ -1,74 +1,95 @@
-const userModel=require('../models/user.model');
-const userService=require('../services/user.service');
+const userModel = require('../models/user.model');
+const userService = require('../services/user.service');
 const { validationResult } = require('express-validator');
-const blackListTokenModel=require('../models/blacklistToken.model');
-module.exports.registerUser = async (req, res, next) => {
+const blackListTokenModel = require('../models/blacklistToken.model');
 
+// ================= REGISTER USER =================
+module.exports.registerUser = async (req, res, next) => {
+  try {
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
-        return res.status(400).json({ errors: errors.array() });
+      return res.status(400).json({ errors: errors.array() });
     }
 
     const { fullname, email, password } = req.body;
 
     const hashedPassword = await userModel.hashPassword(password);
 
+    // ✅ FIX #1 — fullname must be nested like schema
     const user = await userService.createUser({
+      fullname: {
         firstname: fullname.firstname,
         lastname: fullname.lastname,
-        email,
-        password: hashedPassword
+      },
+      email,
+      password: hashedPassword,
     });
 
     const token = user.generateAuthToken();
     res.cookie('token', token);
 
+    // ✅ Hide password before sending user data
+    user.password = undefined;
+
     res.status(201).json({ token, user });
+  } catch (err) {
+    console.error('Register Error:', err);
+    res.status(500).json({ message: 'Server error during registration' });
+  }
+};
 
-
-}
-//#region User Login Controller
+// ================= LOGIN USER =================
 module.exports.loginUser = async (req, res, next) => {
-
+  try {
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
-        return res.status(400).json({ errors: errors.array() });
+      return res.status(400).json({ errors: errors.array() });
     }
 
     const { email, password } = req.body;
 
+    // ✅ FIX #2 — must use select('+password') because password is hidden in schema
     const user = await userModel.findOne({ email }).select('+password');
-
     if (!user) {
-        return res.status(401).json({ message: 'Invalid email or password' });
+      return res.status(401).json({ message: 'Invalid email or password' });
     }
 
     const isMatch = await user.comparePassword(password);
-
     if (!isMatch) {
-        return res.status(401).json({ message: 'Invalid email or password' });
+      return res.status(401).json({ message: 'Invalid email or password' });
     }
 
     const token = user.generateAuthToken();
-
     res.cookie('token', token);
 
+    // ✅ FIX #3 — remove password before sending response
+    user.password = undefined;
+
     res.status(200).json({ token, user });
-}
-//#endregion
+  } catch (err) {
+    console.error('Login Error:', err);
+    res.status(500).json({ message: 'Server error during login' });
+  }
+};
 
+// ================= PROFILE =================
 module.exports.getUserProfile = async (req, res, next) => {
+  res.status(200).json(req.user);
+};
 
-    res.status(200).json(req.user);
-
-}
-
+// ================= LOGOUT =================
 module.exports.logoutUser = async (req, res, next) => {
+  try {
     res.clearCookie('token');
-    const token = req.cookies.token || req.headers.authorization.split(' ')[ 1 ];
+    const token = req.cookies.token || req.headers.authorization?.split(' ')[1];
 
-    await blackListTokenModel.create({ token });
+    if (token) {
+      await blackListTokenModel.create({ token });
+    }
 
     res.status(200).json({ message: 'Logged out' });
-
-}
+  } catch (err) {
+    console.error('Logout Error:', err);
+    res.status(500).json({ message: 'Server error during logout' });
+  }
+};
